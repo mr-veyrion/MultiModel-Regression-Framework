@@ -1,38 +1,36 @@
+# MultiModel-Regression-Framework/src/main.py
 
 import argparse
 import os
 import sys
-import pandas as pd # For saving predictions, if uncommented
+import pandas as pd
 
-# Ensure the 'src' directory is in sys.path if running from project root
-# This allows for `from preprocessing import ...` even if main.py is moved
-# or run via `python src/main.py` from the project root.
-# current_file_dir = os.path.dirname(os.path.abspath(__file__))
-# project_root = os.path.dirname(current_file_dir) # Assuming src is one level down from project root
-# if project_root not in sys.path:
-#    sys.path.insert(0, project_root)
-# Note: If main.py is in 'src' and you run `python main.py` from within 'src',
-# relative imports `from .preprocessing import ...` are preferred.
-# If you run `python src/main.py` from the project root, then Python handles 'src' as a package.
+current_script_dir = os.path.dirname(os.path.abspath(__file__))
+project_root_dir = os.path.dirname(current_script_dir)
+if project_root_dir not in sys.path:
+    sys.path.insert(0, project_root_dir)
 
-from preprocessing import load_and_preprocess_data_v2
-from training import train_and_evaluate_stacking_v2
-import config # Import the config module
+from src.preprocessing import load_and_preprocess_data_v2
+from src.training import train_and_evaluate_stacking_v2
+import src.config as config
 
 def run_pipeline(args):
     try:
         print("Loading and preprocessing data (v2)...")
         
-        # Use data_dir from args. If it's the default from config, it's already an absolute path.
-        # If user provides a relative path via CLI, os.path.join will handle it from CWD.
-        data_dir_to_use = args.data_dir
-        
+        # args.data_dir is relative to the CWD when the script is called.
+        # If you `cd src` and run `python main.py`, CWD is `.../src/`.
+        # If args.data_dir is '../data', it correctly becomes `.../data/`.
+        data_dir_to_use = os.path.abspath(args.data_dir) 
+
         train_features_path = os.path.join(data_dir_to_use, args.train_features)
         train_target_path = os.path.join(data_dir_to_use, args.train_target)
         test_features_path = os.path.join(data_dir_to_use, args.test_features)
         test_target_path = os.path.join(data_dir_to_use, args.test_target)
 
-        print(f"Attempting to load train features from: {train_features_path}") # Debug print
+        print(f"CWD: {os.getcwd()}") # Debug: Print current working directory
+        print(f"Resolved data_dir_to_use: {data_dir_to_use}") # Debug
+        print(f"Attempting to load train features from: {train_features_path}")
 
         data_dict = load_and_preprocess_data_v2(
             train_features_path, train_target_path,
@@ -55,19 +53,16 @@ def run_pipeline(args):
         print("\nStarting model training, optimization, and evaluation (v2)...")
         model, metrics, test_predictions, oof_predictions = train_and_evaluate_stacking_v2(
             X_train, y_train, X_test, y_test, feature_names,
-            n_trials_gbm=args.n_trials_gbm, # argparse defaults will use config values
+            n_trials_gbm=args.n_trials_gbm,
             n_trials_rf_et=args.n_trials_rf_et,
             n_trials_nn=args.n_trials_nn
         )
         print("\n--- Final Model Performance Metrics ---")
-        for metric_name, value in metrics.items(): # Renamed metric to metric_name to avoid conflict
+        for metric_name, value in metrics.items():
             print(f"{metric_name}: {value:.5f}")
         
-        # Optional: Save predictions to specified output directory
         if args.output_dir:
-            # If output_dir is relative, it will be created relative to where the script is run.
-            # For consistency, you might want to make it relative to project root like data_dir.
-            output_dir_to_use = args.output_dir 
+            output_dir_to_use = os.path.abspath(args.output_dir)
             os.makedirs(output_dir_to_use, exist_ok=True)
             
             oof_df = pd.DataFrame({'target': y_train, 'oof_pred': oof_predictions})
@@ -88,11 +83,14 @@ def run_pipeline(args):
         traceback.print_exc()
 
 if __name__ == "__main__":
+    default_data_dir_relative_to_src = '../data'
+    default_output_dir_relative_to_src = '../outputs'
+
     parser = argparse.ArgumentParser(description="Multi-Model Regression Training Framework")
     
     parser.add_argument('--data_dir', type=str, 
-                        default=config.DEFAULT_DATA_DIR, 
-                        help=f'Directory containing data files (default from config: {config.DEFAULT_DATA_DIR})')
+                        default=default_data_dir_relative_to_src, 
+                        help=f'Directory containing data files (default: {default_data_dir_relative_to_src} relative to src CWD)')
     parser.add_argument('--train_features', type=str, 
                         default=config.DEFAULT_TRAIN_FEATURES_FILE, 
                         help=f'Filename for training features (default from config: {config.DEFAULT_TRAIN_FEATURES_FILE})')
@@ -117,8 +115,8 @@ if __name__ == "__main__":
                         help=f'Number of Optuna trials for Neural Network (default from config: {config.DEFAULT_N_TRIALS_NN})')
     
     parser.add_argument('--output_dir', type=str, 
-                        default=config.DEFAULT_OUTPUT_DIR, # Use default from config
-                        help=f'Directory to save prediction outputs (default from config: {config.DEFAULT_OUTPUT_DIR})')
+                        default=default_output_dir_relative_to_src, 
+                        help=f'Directory to save prediction outputs (default: {default_output_dir_relative_to_src} relative to src CWD)')
 
     args = parser.parse_args()
     run_pipeline(args)
