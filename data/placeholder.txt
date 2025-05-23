@@ -1,0 +1,10 @@
+
+Please place your data files in this directory.
+Expected files:
+- train_features.csv
+- train_target.csv (with a 'target' column)
+- test_features.csv
+- test_target.csv (with a 'target' column)
+
+Alternatively, you can provide paths to your data using command-line arguments when running main.py.
+See README.md for details.
