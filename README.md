@@ -49,6 +49,7 @@ A Python framework for training and ensembling multiple regression models (XGBoo
 
 ```bash
 git clone https://github.com/mr-veyrion/MultiModel-Regression-Framework.git
+cd MultiModel-Regression-Framework
 
 python -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
